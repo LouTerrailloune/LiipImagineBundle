@@ -31,11 +31,10 @@ class ImagineLoader extends Loader
 
         if (count($this->filters) > 0) {
             foreach ($this->filters as $filter => $config) {
-                $pattern = $this->cachePrefix;
                 if (isset($config['path'])) {
                     $pattern = '/'.trim($config['path'], '/');
-                } elseif ('' !== $filter) {
-                    $pattern = '/'.$filter;
+                } else {
+                    $pattern = '/'.trim($this->cachePrefix, '/').'/'.$filter;
                 }
 
                 $routes->add('_imagine_'.$filter, new Route(
