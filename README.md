@@ -231,3 +231,5 @@ filters:
 
 For an example of a filter loader implementation, refer to
 `Liip\ImagineBundle\Imagine\Filter\Loader\ThumbnailFilterLoader`.
+
+...
