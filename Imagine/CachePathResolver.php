@@ -66,17 +66,11 @@ class CachePathResolver
      * @param string $path
      * @param string $filter
      */
-    public function resolve(Request $request, $actualPath, $targetFormat, $filter)
+    public function resolve(Request $request, $targetPath, $filter)
     {
-        $info = pathinfo($actualPath);
-        if ($info['extension'] !== $targetFormat) {
-            $targetPath = $info['dirname'].'/'.$info['filename'].'.'.$targetFormat;
-        } else {
-            $targetPath = $actualPath;
-        }
-
         //TODO: find out why I need double urldecode to get a valid path
         $browserPath = urldecode(urldecode($this->getBrowserPath($targetPath, $filter)));
+
          // if cache path cannot be determined, return 404
         if (null === $browserPath) {
             throw new NotFoundHttpException('Image doesn\'t exist');
@@ -103,6 +97,7 @@ class CachePathResolver
     public function store($targetPath, $image)
     {
         $dir = pathinfo($targetPath, PATHINFO_DIRNAME);
+
         if (!is_dir($dir) && !$this->filesystem->mkdir($dir)) {
             throw new \RuntimeException(sprintf(
                 'Could not create directory %s', $dir
