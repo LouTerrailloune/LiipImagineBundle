@@ -5,27 +5,18 @@ namespace Liip\ImagineBundle\Imagine\Filter;
 use Liip\ImagineBundle\Imagine\Filter\Loader\LoaderInterface;
 
 use Imagine\Exception\InvalidArgumentException;
-use Imagine\Filter\FilterInterface;
-use Imagine\Image\ImagineInterface;
-use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class FilterManager
 {
-    /**
-     * @var Imagine\Image\ImagineInterface
-     */
-    private $imagine;
-
     private $filters;
     private $loaders;
     private $services;
 
-    public function __construct(ImagineInterface $imagine, array $filters = array())
+    public function __construct(array $filters = array())
     {
-        $this->imagine   = $imagine;
-        $this->filters   = $filters;
-        $this->loaders   = array();
-        $this->services  = array();
+        $this->filters = $filters;
+        $this->loaders = array();
+        $this->services = array();
     }
 
     public function addLoader($name, LoaderInterface $loader)
@@ -42,18 +33,12 @@ class FilterManager
         return $this->filters[$filter];
     }
 
-    public function get($filter, $image, $realPath = null, $format = 'png')
+    public function get($filter, $image, $format = 'png')
     {
         if (!isset($this->filters[$filter])) {
             throw new InvalidArgumentException(sprintf(
                 'Could not find image filter "%s"', $filter
             ));
-        }
-
-        if (is_resource($image)) {
-            $image = $this->imagine->load(stream_get_contents($image));
-        } else {
-            $image = $this->imagine->open($image);
         }
 
         $config = $this->filters[$filter];
@@ -75,11 +60,8 @@ class FilterManager
         }
 
         $quality = empty($config['quality']) ? 100 : $config['quality'];
-        if (empty($realPath)) {
-            return $image->get($format, array('quality' => $quality));
-        }
+        $image = $image->get($format, array('quality' => $quality));
 
-        $image->save($realPath, array('quality' => $quality));
-        return file_get_contents($realPath);
+        return $image;
     }
 }

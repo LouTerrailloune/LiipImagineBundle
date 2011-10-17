@@ -26,14 +26,16 @@ class ImagineLoader extends Loader
     public function load($resource, $type = null)
     {
         $requirements = array('_method' => 'GET', 'filter' => '[A-z0-9_\-]*', 'path' => '.+');
-        $defaults     = array('_controller' => 'imagine.controller:filterAction');
+        $defaults     = array('_controller' => 'liip_imagine.controller:filterAction');
         $routes       = new RouteCollection();
 
         if (count($this->filters) > 0) {
             foreach ($this->filters as $filter => $config) {
                 $pattern = $this->cachePrefix;
                 if (isset($config['path'])) {
-                    $pattern .= '/'.trim($config['path'], '/');
+                    if ('/' !== $config['path']) {
+                        $pattern .= '/'.trim($config['path'], '/');
+                    }
                 } elseif ('' !== $filter) {
                     $pattern .= '/'.$filter;
                 }
