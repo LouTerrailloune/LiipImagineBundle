@@ -29,7 +29,7 @@ class ImagineExtension extends \Twig_Extension
     public function getFilters()
     {
         return array(
-            'apply_filter' => new \Twig_Filter_Method($this, 'applyFilter'),
+            'imagine_filter' => new \Twig_Filter_Method($this, 'filter'),
         );
     }
 
@@ -38,12 +38,13 @@ class ImagineExtension extends \Twig_Extension
      *
      * @param string $path
      * @param string $filter
+     * @param boolean $absolute
      *
      * @return string
      */
-    public function applyFilter($path, $filter)
+    public function filter($path, $filter, $absolute = false)
     {
-        return $this->cachePathResolver->getBrowserPath($path, $filter);
+        return $this->cachePathResolver->getBrowserPath($path, $filter, $absolute);
     }
 
     /**
