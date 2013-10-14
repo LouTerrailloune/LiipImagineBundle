@@ -18,71 +18,20 @@ This will perform the transformation called `thumbnail`, which you can define
 to do a number of different things, such as resizing, cropping, drawing,
 masking, etc.
 
-This bundle integrates the standalone PHP "[Imagine library](/avalanche123/Imagine)".
+This bundle integrates the standalone PHP "[Imagine library](https://github.com/avalanche123/Imagine)".
+
+[![Build Status](https://secure.travis-ci.org/liip/LiipImagineBundle.png)](http://travis-ci.org/liip/LiipImagineBundle)
+[![Total Downloads](https://poser.pugx.org/liip/imagine-bundle/downloads.png)](https://packagist.org/packages/liip/imagine-bundle)
+[![Latest Stable Version](https://poser.pugx.org/liip/imagine-bundle/v/stable.png)](https://packagist.org/packages/liip/imagine-bundle)
+
 
 ## Installation
 
-To install this bundle, you'll need both the [Imagine library](/avalanche123/Imagine)
-and this bundle. Installation depends on how your project is setup:
+In case you are not sure how to install this bundle, see the [installation instructions](Resources/doc/installation.md).
 
-### Step 1: Installation
+### Configuration
 
-Add the following lines to your ``deps`` file
-
-```
-[Imagine]
-    git=http://github.com/avalanche123/Imagine.git
-    target=imagine
-    version=v0.2.0
-
-[LiipImagineBundle]
-    git=http://github.com/liip/LiipImagineBundle.git
-    target=bundles/Liip/ImagineBundle
-```
-
-Next, update your vendors by running:
-
-``` bash
-$ ./bin/vendors install
-```
-
-### Step 2: Configure the autoloader
-
-Add the following entries to your autoloader:
-
-``` php
-<?php
-// app/autoload.php
-
-$loader->registerNamespaces(array(
-    // ...
-
-    'Imagine'   => __DIR__.'/../vendor/imagine/lib',
-    'Liip'      => __DIR__.'/../vendor/bundles',
-));
-```
-
-### Step 3: Enable the bundle
-
-Finally, enable the bundle in the kernel:
-
-``` php
-<?php
-// app/AppKernel.php
-
-public function registerBundles()
-{
-    $bundles = array(
-        // ...
-
-        new Liip\ImagineBundle\LiipImagineBundle(),
-    );
-}
-```
-
-### Step 4: Register the bundle's routes
-
-Finally, add the following to your routing file:
+After installing the bundle, make sure you add this route to your routing:
 
 ``` yaml
 # app/config/routing.yml
@@ -92,7 +41,7 @@ _imagine:
     type:     imagine
 ```
 
-Congratulations! You're ready to rock your images!
+For a complete configuration drill-down see [the respective chapter in the documentation](Resources/doc/configuration.md).
 
 ## Basic Usage
 
@@ -126,7 +75,7 @@ Or if you're using PHP templates:
 <img src="<?php $this['imagine']->filter('/relative/path/to/image.jpg', 'my_thumb') ?>" />
 ```
 
-Behind the scenes, the bundles apples the filter(s) to the image on the first
+Behind the scenes, the bundles applies the filter(s) to the image on the first
 request and then caches the image to a similar path. On the next request,
 the cached image would be served directly from the file system.
 
@@ -150,142 +99,88 @@ Note: Using the ``dev`` environment you might find that the images are not prope
 using the template helper. This is likely caused by having ``intercept_redirect`` enabled in your
 application configuration. To ensure that the images are rendered disable this option:
 
-
 ``` jinja
 web_profiler:
     intercept_redirects: false
 ```
 
-## Configuration
+## Filters
 
-The default configuration for the bundle looks like this:
+The LiipImagineBundle provides a set of built-in filters.
+You may easily roll your own filter, see [the filters chapter in the documentation](Resources/doc/filters.md).
+
+## Using the controller as a service
+
+If you need to use the filters in a controller, you can just load `ImagineController.php` controller as a service and handle the response:
+
+``` php
+class MyController extends Controller
+{
+    public function indexAction()
+    {
+        // RedirectResponse object
+        $imagemanagerResponse = $this->container
+            ->get('liip_imagine.controller')
+                ->filterAction(
+                    $this->getRequest(),
+                    'uploads/foo.jpg',      // original image you want to apply a filter to
+                    'my_thumb'              // filter defined in config.yml
+        );
+
+        // string to put directly in the "src" of the tag <img>
+        $cacheManager = $this->container->get('liip_imagine.cache.manager');
+        $srcPath = $cacheManager->getBrowserPath('uploads/foo.jpg', 'my_thumb');
+
+        // ..
+    }
+}
+```
+
+In case you need to add more logic the recommended solution is to either extend `ImagineController.php` controller or take the code from that controller as a basis for your own controller.
+
+## Outside the web root
+
+When your setup requires your source images to live outside the web root, or if that's just the way you roll,
+you have to set the bundle's parameter `data_root` in the `config.yml` with the absolute path where your source images are
+located:
 
 ``` yaml
 liip_imagine:
-    web_root:     %kernel.root_dir%/../web
-    cache_prefix: /media/cache
-    cache:        true
-    loader:       ~
-    driver:       gd
-    formats:      []
-    filter_sets:  []
+    data_root: /path/to/source/images/dir
 ```
 
-There are several configuration options available:
-
- - `web_root` - must be the absolute path to you application's web root. This
-    is used to determine where to put generated image files, so that apache
-    will pick them up before handing the request to Symfony2 next time they
-    are requested.
-
-    default: `%kernel.root_dir%/../web`
-
- - `cache_prefix` - this is also used in the path for image generation, so
-    as to not clutter your web root with cached images. For example by default,
-    the images would be written to the `web/media/cache/` directory.
-
-    default: `/media/cache`
-
- - `cache` - if to cache the generated image in the local file system
-
- - `loader` - service id for a custom loader
-
-    default: null (which means the standard filesystem loader is used)
-
- - `driver` - one of the three drivers: `gd`, `imagick`, `gmagick`
-
-    default: `gd`
-
- - `formats` - optional list of image formats to which images may be converted to.
-
- - `filter_sets` - specify the filter sets that you want to define and use
-
-Each filter set that you specify have the following options:
-
- - `filters` - determine the type of filter to be used (refer to *Filters* section for more information)
-    and options that should be passed to the specific filter type
- - `path` - used in place of the filter name to determine the path in combination with the global `cache_prefix`
- - `quality` - override the default quality of 100 for the generated images
- - `format` - to hardcode the output format
-
-## Built-in Filters
-
-Currently, this bundles comes with just one built-in filter: `thumbnail`.
-
-### The `thumbnail` filter
-
-The thumbnail filter, as the name implies, performs a thumbnail transformation
-on your image. Configuration looks like this:
-
-``` yaml
-liip_imagine:
-    filter_sets:
-        my_thumb:
-            filters:
-                thumbnail: { size: [120, 90], mode: outbound }
-```
-
-The `mode` can be either `outbound` or `inset`.
-
-## Load your Custom Filters
-
-The ImagineBundle allows you to load your own custom filter classes. The only
-requirement is that each filter loader implement the following interface:
-
-    Liip\ImagineBundle\Imagine\Filter\Loader\LoaderInterface
-
-To tell the bundle about your new filter loader, register it in the service
-container and apply the `liip_imagine.filter.loader` tag to it (example here in XML):
+Afterwards, you need to grant read access on Apache to access the images source directory. For achieving it you have
+to add the following directive to your project's vhost file:
 
 ``` xml
-<service id="liip_imagine.filter.loader.my_custom_filter" class="Acme\ImagineBundle\Imagine\Filter\Loader\MyCustomFilterLoader">
-    <tag name="liip_imagine.filter.loader" filter="my_custom_filter" />
-</service>
+<VirtualHost *:80>
+    <!-- Rest of directives like DocumentRoot or ServerName -->
+
+    Alias /FavouriteAlias /path/to/source/images/dir
+    <Directory "/path/to/source/images/dir">
+        AllowOverride None
+        Allow from All
+    </Directory>
+</VirtualHost>
 ```
 
-For more information on the service container, see the Symfony2
-[Service Container](http://symfony.com/doc/current/book/service_container.html) documentation.
-
-You can now reference and use your custom filter when defining filter sets you'd
-like to apply in your configuration:
-
-``` yaml
-liip_imagine:
-    filter_sets:
-        my_special_style:
-            filters:
-                my_custom_filter: { }
-```
-
-For an example of a filter loader implementation, refer to
-`Liip\ImagineBundle\Imagine\Filter\Loader\ThumbnailFilterLoader`.
-
-## Custom image loaders
-
-The ImagineBundle allows you to add your custom image loader classes. The only
-requirement is that each data loader implement the following interface:
-
-    Liip\ImagineBundle\Imagine\DataLoader\LoaderInterface
-
-To tell the bundle about your new filter loader, register it in the service
-container just like any other service:
+Another way would be placing the directive in a separate file living inside your project. For instance,
+you can create a file `app/config/apache/photos.xml` and add to the project's vhost the following directive:
 
 ``` xml
-<service id="acme_imagine.loader.my_custom" class="Liip\ImagineBundle\Imagine\DataLoader\MyCustomDataLoader">
-    <argument type="service" id="imagine" />
-    <argument>%liip_imagine.formats%</argument>
-</service>
+<VirtualHost *:80>
+    <!-- Rest of directives like DocumentRoot or ServerName -->
+
+    Include "/path/to/your/project/app/config/apache/photos.xml"
+</VirtualHost>
 ```
 
-For more information on the service container, see the Symfony2
-[Service Container](http://symfony.com/doc/current/book/service_container.html) documentation.
+This way you keep the file along with your code and you are able to change your files directory access easily or create
+different environment-dependant configuration files.
 
-You can enable your custom data loader by adding it to the your configuration:
+Either way, once you have granted access on Apache to read the `data_root` files, the relative path of an image with this
+absolute path `/path/to/source/images/dir/logo.png` must be `/FavouriteAlias/logo.png` to be readable.
 
-``` yaml
-liip_imagine:
-    loader: acme_imagine.loader.my_custom
-```
+## Documentation
 
-For an example of a filter loader implementation, refer to
-`Liip\ImagineBundle\Imagine\DataLoader\FileSystemLoader`.
+For more detailed information about the features of this bundle, please refer to [the documentation](Resources/doc/index.md).

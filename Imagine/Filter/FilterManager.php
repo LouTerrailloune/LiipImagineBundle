@@ -2,83 +2,72 @@
 
 namespace Liip\ImagineBundle\Imagine\Filter;
 
-use Symfony\Component\HttpFoundation\Request,
-    Symfony\Component\HttpFoundation\Response;
-
+use Imagine\Image\ImageInterface;
 use Liip\ImagineBundle\Imagine\Filter\Loader\LoaderInterface;
+
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class FilterManager
 {
     /**
-     * @var array
+     * @var FilterConfiguration
      */
-    private $filters;
+    protected $filterConfig;
 
     /**
-     * @var array
+     * @var LoaderInterface[]
      */
-    private $loaders;
+    protected $loaders = array();
 
     /**
-     * @param array $filters
+     * Constructor.
+     *
+     * @param FilterConfiguration $filterConfig
      */
-    public function __construct(array $filters = array())
+    public function __construct(FilterConfiguration $filterConfig)
     {
-        $this->filters = $filters;
-        $this->loaders = array();
+        $this->filterConfig = $filterConfig;
     }
 
     /**
-     * @param $name
-     * @param Loader\LoaderInterface $loader
-     * 
+     * Adds a loader to handle the given filter.
+     *
+     * @param string $filter
+     * @param LoaderInterface $loader
+     *
      * @return void
      */
-    public function addLoader($name, LoaderInterface $loader)
+    public function addLoader($filter, LoaderInterface $loader)
     {
-        $this->loaders[$name] = $loader;
+        $this->loaders[$filter] = $loader;
     }
 
     /**
-     * @param $filter
-     *
-     * @return array
+     * @return FilterConfiguration
      */
-    public function getFilterConfig($filter)
+    public function getFilterConfiguration()
     {
-        if (empty($this->filters[$filter])) {
-            new \RuntimeException('Filter not defined: '.$filter);
-        }
-
-        return $this->filters[$filter];
+        return $this->filterConfig;
     }
 
     /**
+     * Returns a response containing the given image after applying the given filter on it.
+     *
+     * @uses FilterManager::applyFilterSet
+     *
      * @param Request $request
-     * @param $filter
-     * @param $image
+     * @param string $filter
+     * @param ImageInterface $image
      * @param string $localPath
      *
      * @return Response
      */
-    public function get(Request $request, $filter, $image, $localPath)
+    public function get(Request $request, $filter, ImageInterface $image, $localPath)
     {
-        if (!isset($this->filters[$filter])) {
-            throw new \InvalidArgumentException(sprintf(
-                'Could not find image filter "%s"', $filter
-            ));
-        }
+        $config = $this->getFilterConfiguration()->get($filter);
 
-        $config = $this->filters[$filter];
-
-        foreach ($config['filters'] as $filter => $options) {
-            if (!isset($this->loaders[$filter])) {
-                throw new \InvalidArgumentException(sprintf(
-                    'Could not find loader for "%s" filter type', $filter
-                ));
-            }
-            $image = $this->loaders[$filter]->load($image, $options);
-        }
+        $image = $this->applyFilter($image, $filter);
 
         if (empty($config['format'])) {
             $format = pathinfo($localPath, PATHINFO_EXTENSION);
@@ -97,5 +86,32 @@ class FilterManager
         }
 
         return new Response($image, 200, array('Content-Type' => $contentType));
+    }
+
+    /**
+     * Apply the provided filter set on the given Image.
+     *
+     * @param ImageInterface $image
+     * @param string $filter
+     *
+     * @return ImageInterface
+     *
+     * @throws \InvalidArgumentException
+     */
+    public function applyFilter(ImageInterface $image, $filter)
+    {
+        $config = $this->getFilterConfiguration()->get($filter);
+
+        foreach ($config['filters'] as $eachFilter => $eachOptions) {
+            if (!isset($this->loaders[$eachFilter])) {
+                throw new \InvalidArgumentException(sprintf(
+                    'Could not find filter loader for "%s" filter type', $eachFilter
+                ));
+            }
+
+            $image = $this->loaders[$eachFilter]->load($image, $eachOptions);
+        }
+
+        return $image;
     }
 }

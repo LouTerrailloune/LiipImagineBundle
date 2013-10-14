@@ -1,22 +1,20 @@
 <?php
 
-/*
- * This file is part of the FOSUserBundle package.
- *
- * (c) FriendsOfSymfony <http://friendsofsymfony.github.com/>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Liip\ImagineBundle\Tests\DependencyInjection;
 
-use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Liip\ImagineBundle\Tests\AbstractTest;
 use Liip\ImagineBundle\DependencyInjection\LiipImagineExtension;
-use Symfony\Component\Yaml\Parser;
-use Symfony\Component\DependencyInjection\Reference;
 
-class LiipImagineExtensionTest extends \PHPUnit_Framework_TestCase
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\HttpKernel\Kernel;
+use Symfony\Component\Yaml\Parser;
+
+/**
+ * @covers Liip\ImagineBundle\DependencyInjection\Configuration
+ * @covers Liip\ImagineBundle\DependencyInjection\LiipImagineExtension
+ */
+class LiipImagineExtensionTest extends AbstractTest
 {
     /**
      * @var \Symfony\Component\DependencyInjection\ContainerBuilder
@@ -37,26 +35,46 @@ class LiipImagineExtensionTest extends \PHPUnit_Framework_TestCase
     {
         $this->createEmptyConfiguration();
 
-        $this->assertParameter(true, 'liip_imagine.cache');
+        $this->assertParameter('web_path', 'liip_imagine.cache.resolver.default');
         $this->assertAlias('liip_imagine.gd', 'liip_imagine');
         $this->assertHasDefinition('liip_imagine.controller');
         $this->assertDICConstructorArguments(
             $this->containerBuilder->getDefinition('liip_imagine.controller'),
-            array(new Reference('liip_imagine.loader.filesystem'), new Reference('liip_imagine.filter.manager'), '%liip_imagine.web_root%', new Reference('liip_imagine.cache.path.resolver'))
+            array(new Reference('liip_imagine.data.manager'), new Reference('liip_imagine.filter.manager'), new Reference('liip_imagine.cache.manager'))
         );
     }
 
-    public function testLoad()
+    public function testCacheClearerRegistration()
+    {
+        $this->createEmptyConfiguration();
+
+        if ('2' == Kernel::MAJOR_VERSION && '0' == Kernel::MINOR_VERSION) {
+            $this->assertFalse($this->containerBuilder->hasDefinition('liip_imagine.cache.clearer'));
+        } else {
+            $this->assertTrue($this->containerBuilder->hasDefinition('liip_imagine.cache.clearer'));
+
+            $definition = $this->containerBuilder->getDefinition('liip_imagine.cache.clearer');
+            $definition->hasTag('kernel.cache_clearer');
+            $this->assertCount(2, $definition->getArguments());
+        }
+    }
+
+    public function testCacheClearerIsNotRegistered()
     {
         $this->createFullConfiguration();
 
-        $this->assertParameter(false, 'liip_imagine.cache');
-        $this->assertAlias('liip_imagine.imagick', 'liip_imagine');
-        $this->assertHasDefinition('liip_imagine.controller');
-        $this->assertDICConstructorArguments(
-            $this->containerBuilder->getDefinition('liip_imagine.controller'),
-            array(new Reference('acme_liip_imagine.loader'), new Reference('liip_imagine.filter.manager'), '%liip_imagine.web_root%')
-        );
+        $this->assertFalse($this->containerBuilder->hasDefinition('liip_imagine.cache.clearer'));
+    }
+
+    public function testCustomRouteRequirements()
+    {
+        $this->createFullConfiguration();
+        $param = $this->containerBuilder->getParameter('liip_imagine.filter_sets');
+
+        $this->assertTrue(isset($param['small']['filters']['route']['requirements']));
+
+        $variable1 = $param['small']['filters']['route']['requirements']['variable1'];
+        $this->assertEquals('value1', $variable1, sprintf('%s parameter is correct', $variable1));
     }
 
     /**
@@ -88,11 +106,14 @@ driver: imagick
 web_root: ../foo/bar
 cache_prefix: /imagine/cache
 cache: false
+cache_clearer: false
 formats: ['json', 'xml', 'jpg', 'png', 'gif']
 filter_sets:
     small:
         filters:
             thumbnail: { size: [100, ~], mode: inset }
+            route:
+                requirements: { variable1: 'value1' }
         quality: 80
     medium_small_cropped:
         filters:
@@ -115,7 +136,7 @@ filter_sets:
         quality: 100
     '':
         quality: 100
-loader: acme_liip_imagine.loader
+data_loader: my_loader
 EOF;
         $parser = new Parser();
 

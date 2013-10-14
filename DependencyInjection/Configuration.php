@@ -2,8 +2,8 @@
 
 namespace Liip\ImagineBundle\DependencyInjection;
 
-use Symfony\Component\Config\Definition\Builder\TreeBuilder,
-    Symfony\Component\Config\Definition\ConfigurationInterface;
+use Symfony\Component\Config\Definition\Builder\TreeBuilder;
+use Symfony\Component\Config\Definition\ConfigurationInterface;
 
 class Configuration implements ConfigurationInterface
 {
@@ -28,9 +28,14 @@ class Configuration implements ConfigurationInterface
                     ->end()
                 ->end()
                 ->scalarNode('web_root')->defaultValue('%kernel.root_dir%/../web')->end()
+                ->scalarNode('data_root')->defaultValue('%liip_imagine.web_root%')->end()
+                ->scalarNode('cache_mkdir_mode')->defaultValue(0777)->end()
                 ->scalarNode('cache_prefix')->defaultValue('/media/cache')->end()
-                ->scalarNode('cache')->defaultTrue()->end()
-                ->scalarNode('loader')->defaultNull()->end()
+                ->scalarNode('cache')->defaultValue('web_path')->end()
+                ->scalarNode('cache_base_path')->defaultValue('')->end()
+                ->booleanNode('cache_clearer')->defaultValue(true)->end()
+                ->scalarNode('data_loader')->defaultValue('filesystem')->end()
+                ->scalarNode('controller_action')->defaultValue('liip_imagine.controller:filterAction')->end()
                 ->arrayNode('formats')
                     ->defaultValue(array())
                     ->prototype('scalar')->end()
@@ -39,11 +44,21 @@ class Configuration implements ConfigurationInterface
                     ->useAttributeAsKey('name')
                     ->prototype('array')
                         ->fixXmlConfig('filter', 'filters')
-                        ->useAttributeAsKey('name')
                         ->children()
                             ->scalarNode('path')->end()
                             ->scalarNode('quality')->defaultValue(100)->end()
                             ->scalarNode('format')->defaultNull()->end()
+                            ->scalarNode('cache')->defaultNull()->end()
+                            ->scalarNode('data_loader')->defaultNull()->end()
+                            ->scalarNode('controller_action')->defaultNull()->end()
+                            ->arrayNode('route')
+                                ->defaultValue(array())
+                                ->useAttributeAsKey('name')
+                                ->prototype('array')
+                                    ->useAttributeAsKey('name')
+                                    ->prototype('variable')->end()
+                                ->end()
+                            ->end()
                             ->arrayNode('filters')
                                 ->useAttributeAsKey('name')
                                 ->prototype('array')
